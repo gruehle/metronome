@@ -22,8 +22,20 @@ export class Engine {
           .webkitAudioContext;
       this.ctx = new Ctor();
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = 1.0;
-      this.masterGain.connect(this.ctx.destination);
+      // Phones are quiet through speakers, so boost the pre-limiter feed.
+      // Signals can now peak above 0 dBFS; the compressor below catches
+      // them so the output never digitally clips at the destination.
+      this.masterGain.gain.value = 2.2;
+
+      const compressor = this.ctx.createDynamicsCompressor();
+      compressor.threshold.value = -6;
+      compressor.knee.value = 6;
+      compressor.ratio.value = 12;
+      compressor.attack.value = 0.002;
+      compressor.release.value = 0.05;
+
+      this.masterGain.connect(compressor).connect(this.ctx.destination);
+
       this.scheduler = new Scheduler(this.ctx, this.masterGain, {
         getState: this.getState,
         onBeat: (e) => this.beatListeners.forEach((fn) => fn(e)),
