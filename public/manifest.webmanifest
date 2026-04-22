@@ -1,0 +1,10 @@
+{
+  "name": "Metronome",
+  "short_name": "Metronome",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0d10",
+  "theme_color": "#0b0d10",
+  "start_url": "/",
+  "icons": []
+}

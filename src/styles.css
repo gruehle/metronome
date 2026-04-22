@@ -1,0 +1,746 @@
+:root {
+  --bg: #0b0d10;
+  --bg-elev: #151920;
+  --bg-elev-2: #1d2330;
+  --fg: #e8ecf3;
+  --fg-dim: #9aa4b4;
+  --accent: #f5a524;
+  --accent-dim: #8a5c14;
+  --danger: #ef4444;
+  --ok: #22c55e;
+  --border: #272f3d;
+  --focus: #60a5fa;
+  --radius: 12px;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  overflow-x: clip;
+}
+
+/* Screen-reader-only: visually hidden, still read by assistive tech.
+   Used for the play/stop live-region announcement. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Wrapper contributes no box so the play button still participates in
+   the transport__top flex layout directly. */
+.play-button__wrapper {
+  display: contents;
+}
+
+body {
+  min-height: 100dvh;
+  overflow-x: clip;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.app-header {
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--border);
+}
+.app-header h1 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+  padding: 1rem;
+  align-content: start;
+  container-type: inline-size;
+}
+
+@container (min-width: 760px) {
+  /* `.pane.pane--left` specificity beats the later-declared
+     `.pane { display: flex }` base rule.
+     Layout: row 1 has tempo + timesig side-by-side. Presets go on row 2
+     spanning both columns. */
+  .pane.pane--left {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+  .pane--left .transport,
+  .pane--left .timesig,
+  .pane--left .presets {
+    min-width: 0;
+  }
+  .pane--left .presets {
+    grid-column: 1 / -1;
+  }
+  /* Size containment on timesig means its intrinsic content height no
+     longer contributes to the grid row's height — so the row is driven
+     by the tempo card's natural height, and timesig stretches to match
+     it via align-items: stretch. */
+  .pane--left .timesig {
+    container-type: size;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .pane--left .timesig__beat-count {
+    font-size: clamp(2.5rem, 55cqh, 5.5rem);
+  }
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.section-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  margin-bottom: 0.25rem;
+}
+
+/* ------------------------- Transport / play ------------------------ */
+
+.transport {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.transport__top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+.transport__top .tempo__readout {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+}
+.transport__top .tap-button {
+  flex: 0 0 auto;
+  min-width: 72px;
+  min-height: 48px;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  font-size: 1rem;
+}
+
+.play-button {
+  flex: 0 0 auto;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease;
+  box-shadow: 0 6px 20px rgba(245, 165, 36, 0.25);
+}
+.play-button svg {
+  width: 38px;
+  height: 38px;
+  fill: currentColor;
+}
+.play-button.is-playing {
+  background: var(--danger);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3);
+  color: #fff;
+}
+.play-button:active {
+  transform: scale(0.96);
+}
+.play-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* ------------------------- Tempo ----------------------------------- */
+
+.tempo__readout {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.tempo__bpm {
+  font-size: clamp(2.5rem, 10cqi, 4rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  /* strip the default input chrome so it visually matches the old span */
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  padding: 0;
+  margin: 0;
+  width: 3.5ch;
+  text-align: left;
+  caret-color: var(--accent);
+  cursor: text;
+}
+.tempo__bpm:focus {
+  outline: none;
+  color: var(--accent);
+}
+.tempo__bpm::selection {
+  background: var(--accent-dim);
+}
+
+.tempo__label {
+  font-size: 0.8rem;
+  color: var(--fg-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tempo__slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tempo__slider {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  display: block;
+}
+
+.step-button {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s ease, transform 0.05s ease;
+}
+.step-button:active {
+  transform: scale(0.92);
+}
+.step-button:hover {
+  background: #24304a;
+}
+.step-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ------------------------- Chip / button --------------------------- */
+
+.chip {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.1s ease, transform 0.05s ease;
+}
+.chip:active {
+  transform: scale(0.96);
+}
+.chip:hover {
+  background: #24304a;
+}
+.chip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.chip--tap {
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  border-color: var(--border);
+}
+.chip--mute.is-active {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
+/* ------------------------- Time signature -------------------------- */
+
+.timesig {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 1rem;
+  row-gap: 0.35rem;
+  align-items: center;
+}
+.timesig .section-label {
+  grid-column: 1;
+  grid-row: 1;
+}
+.timesig__controls {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.timesig__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.timesig__num,
+.timesig__den {
+  font-size: 1.5rem;
+  font-weight: 700;
+  padding: 0.3rem 0.5rem;
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 44px;
+  min-width: 3.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.timesig__slash {
+  font-size: 2rem;
+  color: var(--fg-dim);
+}
+
+/* ------------------------- Presets --------------------------------- */
+
+.presets {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.presets__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.preset-button {
+  min-height: 56px;
+  padding: 0.5rem 0.25rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  color: var(--accent);
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.1s ease, transform 0.05s ease, border-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.preset-button:active {
+  transform: scale(0.96);
+}
+.preset-button:hover {
+  background: #24304a;
+  border-color: var(--accent-dim);
+}
+.preset-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ------------------------- Beat count ------------------------------ */
+
+.timesig__beat-count {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: end;
+  min-width: 4rem;
+  padding: 0 0.25rem;
+  text-align: center;
+  font-size: clamp(4rem, 18cqi, 6rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-dim);
+  line-height: 1;
+}
+.timesig__beat-count.is-down {
+  color: var(--accent);
+}
+.timesig__beat-count.is-pulse {
+  animation: beatCountPulse 0.25s ease-out;
+}
+@keyframes beatCountPulse {
+  0% {
+    transform: scale(1.35);
+    text-shadow: 0 0 12px currentColor;
+  }
+  100% {
+    transform: scale(1);
+    text-shadow: none;
+  }
+}
+
+/* ------------------------- Mixer ----------------------------------- */
+
+.mixer {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  flex: 1;
+}
+
+.mixer__toggle {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  cursor: pointer;
+  min-height: 32px;
+  margin-bottom: 0.25rem;
+}
+.mixer__toggle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.mixer__toggle .section-label {
+  margin-bottom: 0;
+}
+.mixer__chevron {
+  color: var(--fg-dim);
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1;
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+.mixer:not(.is-collapsed) .mixer__chevron {
+  transform: rotate(90deg);
+}
+
+.mixer.is-collapsed {
+  padding-bottom: 0.6rem;
+}
+.mixer.is-collapsed .mixer__grid {
+  display: none;
+}
+
+/* Portrait (default): each channel is a self-contained card with a
+   compact top row (label, sound, vol%, mute) and a full-width fader row. */
+.mixer__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.channel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-areas:
+    'head sound vol mute'
+    'fader fader fader fader';
+  column-gap: 0.5rem;
+  row-gap: 0.35rem;
+  align-items: center;
+  padding: 0.5rem 0.6rem;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-width: 0;
+}
+.channel__head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  overflow: hidden;
+}
+.channel__glyph {
+  font-size: 1.2rem;
+  color: var(--accent);
+  width: 1.4rem;
+  text-align: center;
+  flex: 0 0 auto;
+}
+.channel__name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.channel__fader {
+  grid-area: fader;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  display: block;
+}
+.channel__vol {
+  grid-area: vol;
+  font-size: 0.75rem;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+  min-width: 2.6rem;
+  text-align: right;
+}
+.channel .chip--mute {
+  grid-area: mute;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0 0.5rem;
+  font-size: 0.85rem;
+}
+.channel__sound {
+  grid-area: sound;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.3rem 0.35rem;
+  min-height: 38px;
+  max-width: 7.5rem;
+  font-size: 0.8rem;
+}
+.channel.is-muted .channel__glyph,
+.channel.is-muted .channel__name {
+  opacity: 0.45;
+}
+.channel.is-pulsing .channel__glyph {
+  animation: glyphPulse 0.25s ease-out;
+}
+@keyframes glyphPulse {
+  0% {
+    color: #fff;
+    text-shadow: 0 0 12px var(--accent);
+    transform: scale(1.15);
+  }
+  100% {
+    color: var(--accent);
+    text-shadow: none;
+    transform: scale(1);
+  }
+}
+
+/* Landscape / wide: classic mixing-board vertical faders */
+@container (min-width: 760px) {
+  .mixer__grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-rows: auto;
+    align-items: stretch;
+    gap: 0.5rem;
+    min-height: 360px;
+  }
+  .channel {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'head'
+      'fader'
+      'vol'
+      'mute'
+      'sound';
+    grid-template-rows: auto 1fr auto auto auto;
+    column-gap: 0;
+    row-gap: 0.35rem;
+    padding: 0.5rem 0.35rem;
+    align-items: center;
+    justify-items: center;
+    text-align: center;
+  }
+  .channel__head {
+    flex-direction: column;
+    gap: 0.15rem;
+    width: 100%;
+    overflow: visible;
+  }
+  .channel__name {
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .channel__fader {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 32px;
+    height: 100%;
+    min-height: 160px;
+  }
+  .channel__vol {
+    text-align: center;
+    min-width: 0;
+  }
+  .channel .chip--mute {
+    min-width: 40px;
+  }
+  .channel__sound {
+    width: 100%;
+    max-width: 100%;
+    font-size: 0.72rem;
+    padding: 0.25rem 0.2rem;
+  }
+}
+
+/* ------------------------- Range input styling --------------------- */
+
+input[type='range'] {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  background: var(--bg-elev-2);
+  border-radius: 3px;
+}
+input[type='range']::-moz-range-track {
+  height: 6px;
+  background: var(--bg-elev-2);
+  border-radius: 3px;
+}
+
+/* Channel card bg is `--bg-elev-2`, so the default bg-elev-2 track is
+   invisible against it. A subtle slate-gray gives a visible-but-muted
+   rail. `input[type='range']` is used so these beat the base rule on
+   specificity (attribute-selector + type + pseudo-element). */
+input[type='range'].channel__fader::-webkit-slider-runnable-track {
+  height: 8px;
+  background: #3a4254;
+  border-radius: 4px;
+}
+input[type='range'].channel__fader::-moz-range-track {
+  height: 8px;
+  background: #3a4254;
+  border-radius: 4px;
+}
+/* Re-center the thumb over the taller track, and desaturate it from
+   the loud orange --accent so it doesn't dominate the mixer. */
+input[type='range'].channel__fader::-webkit-slider-thumb {
+  margin-top: -7px;
+  background: #6b7487;
+}
+input[type='range'].channel__fader::-moz-range-thumb {
+  background: #6b7487;
+}
+@media (pointer: coarse) {
+  input[type='range'].channel__fader::-webkit-slider-thumb {
+    margin-top: -10px;
+  }
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  border-radius: 50%;
+  margin-top: -8px;
+  border: none;
+  cursor: pointer;
+}
+input[type='range']::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  input[type='range']::-webkit-slider-thumb {
+    width: 28px;
+    height: 28px;
+    margin-top: -11px;
+  }
+  input[type='range']::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+  }
+}
