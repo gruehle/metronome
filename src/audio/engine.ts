@@ -9,6 +9,7 @@ export class Engine {
   private masterGain: GainNode | null = null;
   private scheduler: Scheduler | null = null;
   private beatListeners = new Set<(e: BeatEvent) => void>();
+  private silentUnlock: HTMLAudioElement | null = null;
 
   constructor(private readonly getState: () => State) {}
 
@@ -28,7 +29,25 @@ export class Engine {
         onBeat: (e) => this.beatListeners.forEach((fn) => fn(e)),
       });
     }
+    // iOS Safari routes AudioContext through the "ambient" audio session
+    // by default, which is muted by the hardware ringer/silent switch.
+    // Playing a short silent HTMLMediaElement during the user gesture
+    // flips the session to "playback" so media volume (not the silent
+    // switch) controls audibility.
+    this.primeSilentUnlock();
     if (this.ctx.state === 'suspended') await this.ctx.resume();
+  }
+
+  private primeSilentUnlock(): void {
+    if (this.silentUnlock) return;
+    const audio = new Audio(buildSilentWavDataUrl());
+    audio.loop = true;
+    audio.volume = 0.001;
+    audio.setAttribute('playsinline', '');
+    // Ignore rejection: if autoplay policy blocks it for some reason, the
+    // normal `ctx.resume()` path is still attempted below.
+    audio.play().catch(() => {});
+    this.silentUnlock = audio;
   }
 
   async start(): Promise<void> {
@@ -48,4 +67,36 @@ export class Engine {
   audioTime(): number {
     return this.ctx?.currentTime ?? 0;
   }
+}
+
+// Generates a 100 ms silent 8-bit mono WAV as a data URL. Tiny (~870 B
+// encoded) and doesn't depend on bundled assets. The audio element playing
+// this flips iOS Safari out of the ambient audio session.
+function buildSilentWavDataUrl(): string {
+  const sampleRate = 8000;
+  const samples = 800;
+  const totalSize = 44 + samples;
+  const buf = new ArrayBuffer(totalSize);
+  const view = new DataView(buf);
+  // RIFF header
+  view.setUint32(0, 0x52494646, false); // 'RIFF'
+  view.setUint32(4, totalSize - 8, true);
+  view.setUint32(8, 0x57415645, false); // 'WAVE'
+  // fmt chunk
+  view.setUint32(12, 0x666d7420, false); // 'fmt '
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate, true); // byte rate
+  view.setUint16(32, 1, true); // block align
+  view.setUint16(34, 8, true); // bits per sample
+  // data chunk
+  view.setUint32(36, 0x64617461, false); // 'data'
+  view.setUint32(40, samples, true);
+  for (let i = 0; i < samples; i++) view.setUint8(44 + i, 0x80); // silent center for unsigned 8-bit
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return `data:audio/wav;base64,${btoa(bin)}`;
 }
