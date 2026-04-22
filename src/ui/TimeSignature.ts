@@ -2,12 +2,7 @@ import type { Store } from '../state/store';
 
 const DENS = [2, 4, 8, 16] as const;
 
-export type TimeSignatureHandle = {
-  el: HTMLElement;
-  flash: (beatIndex: number) => void;
-};
-
-export function TimeSignature(store: Store): TimeSignatureHandle {
+export function TimeSignature(store: Store): HTMLElement {
   const root = document.createElement('section');
   root.className = 'timesig';
 
@@ -42,11 +37,6 @@ export function TimeSignature(store: Store): TimeSignatureHandle {
     denSelect.append(opt);
   }
 
-  const beatCount = document.createElement('div');
-  beatCount.className = 'timesig__beat-count';
-  beatCount.setAttribute('aria-live', 'off');
-  beatCount.textContent = '–';
-
   numSelect.addEventListener('change', () => {
     const v = Math.max(1, Math.min(16, Number(numSelect.value)));
     store.update((d) => {
@@ -61,22 +51,12 @@ export function TimeSignature(store: Store): TimeSignatureHandle {
   });
 
   controls.append(numSelect, slash, denSelect);
-  root.append(label, controls, beatCount);
+  root.append(label, controls);
 
   store.subscribe((s) => {
     if (numSelect.value !== String(s.sig.num)) numSelect.value = String(s.sig.num);
     if (denSelect.value !== String(s.sig.den)) denSelect.value = String(s.sig.den);
-    if (!s.playing) beatCount.textContent = '–';
   });
 
-  return {
-    el: root,
-    flash(beatIndex: number): void {
-      beatCount.textContent = String(beatIndex + 1);
-      beatCount.classList.toggle('is-down', beatIndex === 0);
-      beatCount.classList.remove('is-pulse');
-      void beatCount.offsetWidth;
-      beatCount.classList.add('is-pulse');
-    },
-  };
+  return root;
 }

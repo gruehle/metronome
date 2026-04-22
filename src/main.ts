@@ -31,12 +31,12 @@ const transport = document.createElement('section');
 transport.className = 'transport';
 const transportTop = document.createElement('div');
 transportTop.className = 'transport__top';
-transportTop.append(playButton, tempo.readout, tapButton);
+transportTop.append(playButton.el, tempo.readout, tapButton);
 transport.append(transportTop, tempo.sliderRow);
 
 const left = document.createElement('div');
 left.className = 'pane pane--left';
-left.append(transport, timesig.el, presets);
+left.append(transport, timesig, presets);
 
 const right = document.createElement('div');
 right.className = 'pane pane--right';
@@ -52,11 +52,28 @@ app.append(header, layout);
 // any layer channels that fired. We align the DOM update with the actual
 // audio time using setTimeout keyed off AudioContext.currentTime so the
 // visuals stay sync'd under heavy scheduling lookahead.
+// Pulse on the tempo card runs on a short-attack + long-decay CSS
+// transition. Holding is-pulse for ~110 ms gives the box-shadow time to
+// reach its peak; removing it lets the base transition carry the shadow
+// back to rest. Overlapping beats at high BPM interpolate smoothly from
+// whatever intermediate value is current.
+const TRANSPORT_PULSE_HOLD_MS = 110;
+let transportPulseTimer: ReturnType<typeof setTimeout> | null = null;
+
 engine.onBeat((e) => {
   const nowAudio = engine.audioTime();
   const delayMs = Math.max(0, (e.audioTime - nowAudio) * 1000);
   setTimeout(() => {
-    if (e.tickInBeat === 0) timesig.flash(e.beatIndex);
+    if (e.tickInBeat === 0) {
+      playButton.flash(e.beatIndex);
+      transport.classList.toggle('is-downbeat', e.beatIndex === 0);
+      transport.classList.add('is-pulse');
+      if (transportPulseTimer) clearTimeout(transportPulseTimer);
+      transportPulseTimer = setTimeout(() => {
+        transport.classList.remove('is-pulse');
+        transportPulseTimer = null;
+      }, TRANSPORT_PULSE_HOLD_MS);
+    }
     for (const id of e.firedLayers) mixer.pulse(id);
   }, delayMs);
 });

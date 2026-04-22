@@ -96,43 +96,64 @@ body {
   container-type: inline-size;
 }
 
+.pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* Mobile / narrow: tempo spans a full row; timesig + presets share the
+   row below. Wide-view override further down rearranges into a single
+   three-column row. Specificity (.pane.pane--left) beats the generic
+   `.pane { display: flex }` base above regardless of source order. */
+.pane.pane--left {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    'transport transport'
+    'timesig presets';
+  gap: 0.6rem;
+}
+.pane--left .transport {
+  grid-area: transport;
+  min-width: 0;
+}
+.pane--left .timesig {
+  grid-area: timesig;
+  min-width: 0;
+}
+.pane--left .presets {
+  grid-area: presets;
+  min-width: 0;
+}
+
 @container (min-width: 760px) {
-  /* `.pane.pane--left` specificity beats the later-declared
-     `.pane { display: flex }` base rule.
-     Layout: row 1 has tempo + timesig side-by-side. Presets go on row 2
-     spanning both columns. */
   .pane.pane--left {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 60fr) minmax(0, 18fr) minmax(0, 22fr);
+    grid-template-areas: 'transport timesig presets';
     align-items: stretch;
-    gap: 0.6rem;
   }
-  .pane--left .transport,
-  .pane--left .timesig,
-  .pane--left .presets {
-    min-width: 0;
-  }
-  .pane--left .presets {
-    grid-column: 1 / -1;
-  }
-  /* Size containment on timesig means its intrinsic content height no
-     longer contributes to the grid row's height — so the row is driven
-     by the tempo card's natural height, and timesig stretches to match
-     it via align-items: stretch. */
+  /* Size containment keeps timesig from forcing the parent grid row
+     taller than the tempo card. */
   .pane--left .timesig {
     container-type: size;
     min-height: 0;
     overflow: hidden;
   }
-  .pane--left .timesig__beat-count {
-    font-size: clamp(2.5rem, 55cqh, 5.5rem);
+  /* Don't let the preset grid stretch vertically — buttons stay at
+     their natural 56 px height so they visually align with the timesig
+     selects. Extra vertical space in the card stays empty below. */
+  .pane--left .presets__grid {
+    flex: 0 0 auto;
   }
-}
-
-.pane {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+  /* Wide view has room for bigger select typography. */
+  .pane--left .timesig__num,
+  .pane--left .timesig__den {
+    font-size: 1.5rem;
+    padding: 0.3rem 1.5rem;
+    min-width: 3.5rem;
+    background-position: right 0.55rem center;
+  }
 }
 
 .section-label {
@@ -154,6 +175,22 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1rem;
+}
+
+/* Pulse is driven by toggling `.is-pulse` in JS: short transition on the
+   way up (sharp attack), longer default transition on the way back down
+   (smooth decay). Overlapping beats at high BPM blend from whatever
+   intermediate box-shadow the decay reached to the next peak without
+   snapping. */
+.transport {
+  transition: box-shadow 0.45s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.transport.is-pulse {
+  transition: none;
+  box-shadow: inset 0 0 32px rgba(245, 165, 36, 0.22);
+}
+.transport.is-pulse.is-downbeat {
+  box-shadow: inset 0 0 48px rgba(245, 165, 36, 0.38);
 }
 
 .transport__top {
@@ -188,18 +225,46 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.08s ease, background 0.15s ease;
+  /* Default transition is the *decay* — long and smooth so removing the
+     `.is-pulse` class eases back to rest. `.is-pulse` overrides the
+     durations for a sharp attack. We animate the `scale` property (not
+     `transform: scale(…)`) so the :active press still composes its own
+     `transform: scale(0.96)` on top independently. */
+  transition: background 0.15s ease,
+              scale 0.38s cubic-bezier(0.2, 0.7, 0.3, 1),
+              box-shadow 0.38s cubic-bezier(0.2, 0.7, 0.3, 1);
   box-shadow: 0 6px 20px rgba(245, 165, 36, 0.25);
+  position: relative;
 }
 .play-button svg {
   width: 38px;
   height: 38px;
   fill: currentColor;
 }
+.play-button__icon,
+.play-button__beat {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.play-button__beat {
+  font-size: 2.75rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #3a4254;
+  opacity: 0;
+}
 .play-button.is-playing {
-  background: var(--danger);
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3);
-  color: #fff;
+  color: #111;
+}
+.play-button.is-playing .play-button__icon {
+  opacity: 0;
+}
+.play-button.is-playing .play-button__beat {
+  opacity: 1;
 }
 .play-button:active {
   transform: scale(0.96);
@@ -207,6 +272,19 @@ body {
 .play-button:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
+}
+/* Peak state lives on `.is-pulse`; base transition (set on .play-button
+   above) carries scale/box-shadow back smoothly when the class is
+   removed. Attack is instant (`transition: none`) so the peak lands on
+   the beat, not 80 ms behind it. */
+.play-button.is-pulse {
+  transition: none;
+  scale: 1.17;
+  box-shadow: 0 7px 24px rgba(245, 165, 36, 0.38);
+}
+.play-button.is-pulse.is-downbeat {
+  scale: 1.3;
+  box-shadow: 0 9px 34px rgba(245, 165, 36, 0.65);
 }
 
 /* ------------------------- Tempo ----------------------------------- */
@@ -335,20 +413,9 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1rem;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  column-gap: 1rem;
-  row-gap: 0.35rem;
-  align-items: center;
-}
-.timesig .section-label {
-  grid-column: 1;
-  grid-row: 1;
-}
-.timesig__controls {
-  grid-column: 1;
-  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .timesig__controls {
@@ -360,15 +427,25 @@ body {
 
 .timesig__num,
 .timesig__den {
-  font-size: 1.5rem;
+  /* Safari's native <select> ignores min-height and renders at its own
+     font-driven height; `appearance: none` lets our CSS box model win.
+     We then paint our own chevron via background-image so the disclosure
+     affordance survives. */
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: 1.15rem;
   font-weight: 700;
-  padding: 0.3rem 0.5rem;
-  background: var(--bg-elev-2);
+  padding: 0.3rem 1.1rem 0.3rem 0.6rem;
+  background-color: var(--bg-elev-2);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%239aa4b4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M1 1 L5 5 L9 1'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.4rem center;
+  background-size: 10px 6px;
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  min-height: 44px;
-  min-width: 3.5rem;
+  min-height: 56px;
+  min-width: 3rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -387,7 +464,7 @@ body {
   padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 
 .presets__grid {
@@ -422,39 +499,6 @@ body {
 .preset-button:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
-}
-
-/* ------------------------- Beat count ------------------------------ */
-
-.timesig__beat-count {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
-  justify-self: end;
-  min-width: 4rem;
-  padding: 0 0.25rem;
-  text-align: center;
-  font-size: clamp(4rem, 18cqi, 6rem);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  color: var(--fg-dim);
-  line-height: 1;
-}
-.timesig__beat-count.is-down {
-  color: var(--accent);
-}
-.timesig__beat-count.is-pulse {
-  animation: beatCountPulse 0.25s ease-out;
-}
-@keyframes beatCountPulse {
-  0% {
-    transform: scale(1.35);
-    text-shadow: 0 0 12px currentColor;
-  }
-  100% {
-    transform: scale(1);
-    text-shadow: none;
-  }
 }
 
 /* ------------------------- Mixer ----------------------------------- */
