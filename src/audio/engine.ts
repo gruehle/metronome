@@ -25,7 +25,7 @@ export class Engine {
       // Phones are quiet through speakers, so boost the pre-limiter feed.
       // Signals can now peak above 0 dBFS; the compressor below catches
       // them so the output never digitally clips at the destination.
-      this.masterGain.gain.value = 2.2;
+      this.masterGain.gain.value = 3.5;
 
       const compressor = this.ctx.createDynamicsCompressor();
       compressor.threshold.value = -6;
