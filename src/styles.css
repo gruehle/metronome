@@ -177,21 +177,6 @@ body {
   padding: 1rem;
 }
 
-/* Pulse is driven by toggling `.is-pulse` in JS: short transition on the
-   way up (sharp attack), longer default transition on the way back down
-   (smooth decay). Overlapping beats at high BPM blend from whatever
-   intermediate box-shadow the decay reached to the next peak without
-   snapping. */
-.transport {
-  transition: box-shadow 0.45s cubic-bezier(0.2, 0.7, 0.3, 1);
-}
-.transport.is-pulse {
-  transition: none;
-  box-shadow: inset 0 0 32px rgba(245, 165, 36, 0.22);
-}
-.transport.is-pulse.is-downbeat {
-  box-shadow: inset 0 0 48px rgba(245, 165, 36, 0.38);
-}
 
 .transport__top {
   display: flex;

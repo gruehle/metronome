@@ -22,7 +22,7 @@ const PRESETS: Preset[] = [
     layers: {
       downbeat: { sound: 'woodblock', volume: 1.0 },
       beat: { sound: 'click', volume: 0.4 },
-      '8th': { sound: 'click', volume: 0.12 },
+      '8th': { sound: 'click', volume: 0.02 },
     },
   },
   {
@@ -31,7 +31,7 @@ const PRESETS: Preset[] = [
     layers: {
       downbeat: { sound: 'woodblock', volume: 1.0 },
       beat: { sound: 'click', volume: 0.4 },
-      '8thTriplet': { sound: 'click', volume: 0.1 },
+      '8thTriplet': { sound: 'click', volume: 0.02 },
     },
   },
   {
@@ -40,8 +40,8 @@ const PRESETS: Preset[] = [
     layers: {
       downbeat: { sound: 'woodblock', volume: 1.0 },
       beat: { sound: 'click', volume: 0.4 },
-      '8th': { sound: 'click', volume: 0.12 },
-      '16th': { sound: 'click', volume: 0.07 },
+      '8th': { sound: 'click', volume: 0.03 },
+      '16th': { sound: 'click', volume: 0.01 },
     },
   },
 ];
