@@ -51,7 +51,14 @@ export class Engine {
   }
 
   private primeSilentUnlock(): void {
-    if (this.silentUnlock) return;
+    if (this.silentUnlock) {
+      // Element already exists from a previous play; if we paused it in
+      // stop()/quiesce() to drop the iOS "playback" audio session, replay
+      // it now while we're still inside the user gesture so the session
+      // flips back and the silent switch stops muting the click.
+      if (this.silentUnlock.paused) this.silentUnlock.play().catch(() => {});
+      return;
+    }
     const audio = new Audio(buildSilentWavDataUrl());
     audio.loop = true;
     audio.volume = 0.001;
@@ -69,6 +76,17 @@ export class Engine {
 
   stop(): void {
     this.scheduler?.stop();
+    this.quiesce();
+  }
+
+  // Drop the background audio pipeline: pause the silent loop so iOS
+  // releases the "playback" media session, and suspend the AudioContext
+  // so the audio render thread sleeps. Safe to call when already stopped.
+  quiesce(): void {
+    this.silentUnlock?.pause();
+    // Fire-and-forget: ctx.suspend() is async but callers (PlayButton, the
+    // visibilitychange handler) don't need to await it.
+    this.ctx?.suspend().catch(() => {});
   }
 
   onBeat(fn: (e: BeatEvent) => void): () => void {

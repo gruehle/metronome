@@ -90,6 +90,9 @@ store.subscribe(async (s) => {
 });
 
 // Re-acquire the wake lock if the page becomes visible again while playing.
+// When the page is hidden while stopped, also tear down the audio pipeline
+// (silent unlock loop + AudioContext) so the app can actually suspend in
+// the background — otherwise the iOS "playback" audio session pins it awake.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && store.get().playing && !wakeLock) {
     const navAny = navigator as Navigator & { wakeLock?: WakeLockApi };
@@ -99,5 +102,7 @@ document.addEventListener('visibilitychange', () => {
       },
       () => {},
     );
+  } else if (document.visibilityState === 'hidden' && !store.get().playing) {
+    engine.quiesce();
   }
 });
